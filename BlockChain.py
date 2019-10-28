@@ -30,7 +30,7 @@ class Identity:
     name: name of the person
     last_name
     ID: id number
-    date:?????????????????????????
+    date:date when the identity was added to the system
     sex: gender of the person
     public_key: the public key of the identity in the system
     """
@@ -201,6 +201,7 @@ class BlockChain:
 
     @classmethod
     def load_block(self, blockdict):
+    	
         block = Block(0, 0, 0, 0)
         header = BlockHeader(0, 0, 0, 0)
         header.__dict__ = blockdict["header"]
