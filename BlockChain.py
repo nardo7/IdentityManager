@@ -10,6 +10,8 @@ import io, os.path
 import Trie
 
 from threading import Lock
+
+
 class Date:
     def __init__(self, day, month, year):
         self.day = day
@@ -21,6 +23,17 @@ class Date:
 
 
 class Identity:
+    """"
+    identity class wich describe an identity
+
+
+    name: name of the person
+    last_name
+    ID: id number
+    date:?????????????????????????
+    sex: gender of the person
+    public_key: the public key of the identity in the system
+    """
     def __init__(self, name, last_name, ID, date, sex, public_key):
         self.name = name
         self.last_name = last_name
@@ -48,6 +61,7 @@ class Identity:
 
     @classmethod
     def decode(self, file):
+        """" To load the identity from a file by serpent"""
         id_dict = serpent.loads(file)
         id = Identity(0, 0, 0, 0, 0, 0)
         id.__dict__ = id_dict
@@ -55,6 +69,11 @@ class Identity:
 
 
 class Auth:
+    """"Class for representing an authorization in the system
+
+    signature: digital signature from the issuer
+    issuer_public_key: public key of the authority issuer
+    """
     def __init__(self, data, signature, issuer_public_key):
         self.data = data
         self.signature = signature
@@ -66,6 +85,7 @@ class Auth:
 
 
 class BlockHeader:
+
     def __init__(self, previous_block_hash, merkle_root, merkle_root_auths, creator_address):
         self.previous_block_hash = previous_block_hash
         self.merkle_root = merkle_root
@@ -79,7 +99,7 @@ class Block:
         self.identities = []
         self.auths = []
 
-    # dos merkle root distintos, para auth y otro pa ident
+    # two differents merkle root, one for auth and another one for ident
     def set_identities(self, identities):
         calculated_hash = merkle.merkle([id.get_hash() for id in identities], merkle.double_sha256)
         if calculated_hash != self.header.merkle_root:
@@ -105,12 +125,18 @@ class Block:
         return self.hash
 
     def to_ligthweightL(self):
+        """"
+        :return a block with only its header
+        """
         b = Block(0, 0, 0, 0)
         b.header = self.header
         return b
 
     @classmethod
     def decode(self, file):
+        """"
+        Load a block from a file
+        """
         block = pickle.loads(file)
         return block
 
@@ -119,16 +145,17 @@ class Block:
 
 
 class BlockChain:
+
     CREATE_BLOCK_TABLE = "create table if not EXISTS  Blocks (Id_hash text primary key, height int not null, isTip boolean, file Binary not NULL, previous_block_hash text not NULL );"
     UPDATE_TIP_TO_0 = "update Blocks set isTip=0 where isTip=1"
-    UPDATE="update Blocks set isTip=? where Id_hash=?"
+    UPDATE = "update Blocks set isTip=? where Id_hash=?"
     CREATE_INDEX = "create index if not EXISTS Block_hash on Blocks(Id_hash);"
     INSERT_BLOCK = "insert INTO Blocks VALUES (?,?,?,?,?)"
     GET_BLOCK = "select file FROM blocks where Id_hash=(?)"
 
     def __init__(self, path=None):
         self.path = path
-        self.lock=Lock()
+        self.lock = Lock()
         if path is None:
             self.db = sqlite3.connect(p.curdir + "/BlockChain.sqlite3")
             self.path = p.curdir + "/BlockChain.sqlite3"
@@ -191,6 +218,12 @@ class BlockChain:
             return False
 
     def add_block(self, block):
+        """"
+        Add a new block.
+        Here is needed to verify wich tip is
+        larger and then it adds the block to the larger one and
+        updates the tip and the block previous to the tip
+        """
         self.lock.acquire()
         self.db = sqlite3.connect(self.path)
         if hasattr(self, "tip") and block.header.previous_block_hash != self.tip.get_hash():
@@ -198,7 +231,7 @@ class BlockChain:
                 self.tip2.append(block)
                 if len(self.tip2) >= 3:
                     cursor = self.db.cursor()
-                    self.tip2=[self.tip2[1],self.tip2[2]]
+                    self.tip2 = [self.tip2[1], self.tip2[2]]
                     for block in self.tip2:
                         if hasattr(block, "identities"):
                             file = io.open("./trie", 'ab')
@@ -218,7 +251,7 @@ class BlockChain:
                     self.tip2.append(tip2)
             self.lock.release()
             return
-        if hasattr(self,"tip"):
+        if hasattr(self, "tip"):
             self.tip2.clear()
             tip = self.tip
             self.tip2.append(tip)
@@ -281,14 +314,14 @@ class BlockChain:
             self.lock.release()
             return
         block = pickle.loads(file[0])
-        # serializer=serpent.Serializer()
-        # blockdict=serpent.loads(file[0])
-        # block=BlockChain.load_block(blockdict)
         self.db.close()
         self.lock.release()
         return block
 
     def get_hash_from(self, start):
+        """"
+        :return every block hash from start hash to tip
+        """
         self.lock.acquire()
         self.open_db()
         cursor = self.db.cursor()
